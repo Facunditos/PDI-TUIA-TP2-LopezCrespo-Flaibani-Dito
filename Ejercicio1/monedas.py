@@ -91,9 +91,11 @@ def count_dados(img, coords):
     x, y, w, h = coords
     crop_img = img[y:y+h, x:x+w]
     circles = cv2.HoughCircles(crop_img,cv2.HOUGH_GRADIENT, 1, 10, param1=50, param2=40, minRadius=20, maxRadius=30)
-    return circles.shape[1]
+    if circles is not None:
+        return circles.shape[1]
+    return 0  # Si no se detectan círculos, asumimos 0 dados
 
-def detect_components(img):
+def detect_components(img_gray, img):
     # img_seg = img.copy()
     connectivity = 8
     # Encontrar los componentes conectados
@@ -115,19 +117,24 @@ def detect_components(img):
             print(f"Área del contorno: {area}")
             # Calcular el perímetro del contorno
             perimeter = cv2.arcLength(contour, closed=True)
-            figura ={
+            print(f"Perímetro del contorno: {perimeter}")
+            if 14 < perimeter**2/area < 15: #12.57
+                moneda = {
                 'coords': (x, y, w, h),
                 'area': area,
                 'perimeter': perimeter,
-            }
-            print(f"Perímetro del contorno: {perimeter}")
-            if 14 < perimeter**2/area < 15: #12.57
-                monedas.append(figura)
+                'value': "",
+                'cluster': 0,
+                }
+                monedas.append(moneda)
             else:
-                figura['valor'] = count_dados(img, figura['coords'])
-                dados.append(figura)
+                dado = {
+                'coords': (x, y, w, h),
+                'value': 0,
+                }
+                dado['value'] = count_dados(img_gray, dado['coords'])
+                dados.append(dado)
     return monedas, dados
-
 
 def classification(monedas):
     # Preparar los datos
@@ -154,12 +161,12 @@ def classification(monedas):
     }
     # Agregar el valor a cada moneda
     for moneda in monedas:
-        moneda['valor'] = valor_por_cluster[moneda['cluster']]
+        moneda['value'] = valor_por_cluster[moneda['cluster']]
     # # Imprimir los resultados
     # for moneda in monedas:
-    #     print(f"Área: {moneda['area']:.2f}, Perímetro: {moneda['perimeter']:.2f}, Valor: {moneda['valor']}")
+    #     print(f"Área: {moneda['area']:.2f}, Perímetro: {moneda['perimeter']:.2f}, Valor: {moneda['value']}")
 
-def show_results():
+def show_results(monedas, dados):
     # Definir los colores normalizados (0-1) para matplotlib
     colores = {
         '10 centavos': (0, 0, 255/255),  # Rojo
@@ -175,27 +182,27 @@ def show_results():
     # Dibujar los rectángulos sobre las monedas
     for moneda in monedas:
         x, y, w, h = moneda['coords']
-        valor = moneda['valor']
-        color = colores[valor]
+        value = moneda['value']
+        color = colores[value]
         rect = patches.Rectangle((x, y), w, h, linewidth=2, edgecolor=color, facecolor='none')
         ax.add_patch(rect)
-        ax.text(x, y - 15, valor, fontsize=12, color=color, weight='bold')
+        ax.text(x, y - 15, str(value), fontsize=12, color=color, weight='bold')
     # Dibujar los rectángulos para los dados
     for dado in dados:
         x, y, w, h = dado['coords']
-        valor = dado['valor']
+        value = dado['value']
         rect = patches.Rectangle((x, y), w, h, linewidth=2, edgecolor=colores['dados'], facecolor='none')
         ax.add_patch(rect)
-        ax.text(x, y - 15, "Dado: "+str(valor), fontsize=12, color=colores['dados'], weight='bold')
+        ax.text(x, y - 15, "Dado: "+str(value), fontsize=12, color=colores['dados'], weight='bold')
     # Agregar la leyenda
     leyenda_pos = (20, 50)  # Posición inicial de la leyenda
     linea_espaciado = 150    # Espaciado entre líneas de la leyenda
-    for i, (valor, color) in enumerate(colores.items()):
+    for i, (value, color) in enumerate(colores.items()):
         # Cuadro de color para leyenda
         ax.add_patch(patches.Rectangle((leyenda_pos[0], leyenda_pos[1] + i * linea_espaciado),
             20, 20, linewidth=2, edgecolor=color, facecolor=color))
         # Agregar texto a la leyenda
-        ax.text(leyenda_pos[0] + 30, leyenda_pos[1] + i * linea_espaciado + 10, valor, fontsize=12, color=color)
+        ax.text(leyenda_pos[0] + 30, leyenda_pos[1] + i * linea_espaciado + 10, str(value), fontsize=12, color=color)
     ax.axis('off')
     plt.show(block=False)
 
@@ -204,10 +211,13 @@ def show_results():
 # --- Programa Principal ----------------------------------------------------------------
 # ---------------------------------------------------------------------------------------
 image = cv2.imread('monedas.jpg')
+# imshow(image)
 img_color = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-img = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)#cv2.imread('monedas.jpg',cv2.IMREAD_GRAYSCALE)
+# imshow(img_color)
+img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)#cv2.imread('monedas.jpg',cv2.IMREAD_GRAYSCALE)
 # imshow(img)
-img_filled = preprocess_image(img)
-monedas, dados = detect_components(img_filled)
+img_filled = preprocess_image(img_gray)
+imshow(img_filled)
+monedas, dados = detect_components(img_gray, img_filled)
 classification(monedas)
-show_results()
+show_results(monedas, dados)
