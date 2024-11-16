@@ -8,7 +8,7 @@ import os
 #-------------------
 
 '''
-Muestra imágenes por pantalla
+Muestra imágenes por pantalla.
 '''
 def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, colorbar=False, ticks=False)-> None:
     if new_fig:
@@ -26,11 +26,11 @@ def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, color
         plt.show(block=blocking)
 
 '''
-Binariza la imagen original(en escala de grises) con un umbral
-Aplica una transformación Top Hat a la imagen original para lograr más nitidez
-Devuelve la intersección entre ambas imágenes binarias
+Binariza la imagen original(en escala de grises) con un umbral.
+Aplica una transformación Top Hat a la imagen original para lograr más nitidez.
+Devuelve la intersección entre ambas imágenes binarias.
 '''
-# En la imagen 04  el caracter toca el borde inferior izquierdo después de la binarización
+# En la imagen 03 el caracter toca el borde inferior izquierdo después de la binarización
 # Si se aumenta el umbral se dincontinúa la letra D
 # La imagen resultante de la transformación Top Hat no toca ese borde, pero los caracteres se engrosan 
 # y tocan en otros lugares el borde.
@@ -51,7 +51,7 @@ def preprocess_image(img: np.ndarray, umbral: int)-> np.ndarray:
 
 '''
 Filtra de la imagen todos los componentes conectados que cuyas áreas están fuera de los límites establecidos
-y que no tengan una relación de aspecto largo/ancho entre 1,5 y 3 (formato de los caracteres)
+y que no tengan una relación de aspecto largo/ancho entre 1,5 y 3 (formato de los caracteres).
 '''
 def filter_area_aspect(img: np.ndarray)-> np.ndarray:
     connectivity = 8
@@ -77,7 +77,7 @@ def filter_area_aspect(img: np.ndarray)-> np.ndarray:
 Busca dentro de la imagen una secuencia de un grupo de 6 caracteres,
 separados en dos grupos de 3 caracteres cada uno.
 Patrón buscado XXX XXX
-Previamente filtra los componentes cuya coordenada y está alejada de los del resto del grupo
+Previamente filtra los componentes cuya coordenada y está alejada de los del resto del grupo.
 '''
 def detect_patente(img: np.ndarray)-> tuple:
     c_min = 5
@@ -140,7 +140,7 @@ def detect_patente(img: np.ndarray)-> tuple:
 
 '''
 Muestra la imagen original con la patente recuadrada y
-un crop de la zona de la patente con los carateres recuadrados
+un crop de la zona de la patente con los carateres recuadrados.
 '''
 def show_results(img: np.ndarray, margin: int)-> None:
     img_with_patente = img.copy()
@@ -192,6 +192,7 @@ for patente in patentes:
     img_color  = cv2.imread(patente)
     img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
     img_patente = img_color.copy()
+    # Realiza el proceso para distintos umbrales hasta que encuentra el patrón XXX XXX y sale
     for umbral in range(110,151):
         img_cleaned = preprocess_image(img_gray, umbral)
         img_filtered = filter_area_aspect(img_cleaned)
