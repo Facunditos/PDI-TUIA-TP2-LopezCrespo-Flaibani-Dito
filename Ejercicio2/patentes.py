@@ -6,7 +6,6 @@ import os
 #-------------------
 # Funciones
 #-------------------
-
 '''
 Muestra imágenes por pantalla.
 '''
@@ -68,8 +67,6 @@ def filter_area_aspect(img: np.ndarray)-> np.ndarray:
             h, w = stats[i, cv2.CC_STAT_HEIGHT], stats[i, cv2.CC_STAT_WIDTH]
             h_w_ratio = h / w
             if 1.5 <= h_w_ratio <= 3:
-                x = stats[i, cv2.CC_STAT_LEFT]
-                y = stats[i, cv2.CC_STAT_TOP]
                 output_img[labels == i] = 255
     return output_img
 
@@ -80,10 +77,10 @@ Patrón buscado XXX XXX
 Previamente filtra los componentes cuya coordenada y está alejada de los del resto del grupo.
 '''
 def detect_patente(img: np.ndarray)-> tuple:
-    c_min = 5
-    c_max = 16
-    e_min = 10
-    e_max = 30
+    c_min = 5   # mínima distancia entre caracteres de un grupo
+    c_max = 16  # máxima distancia entre caracteres de un grupo
+    e_min = 10  # mínima distancia entre los dos grupos
+    e_max = 30  # máxima distancia entre los dos grupos
     max_distance_y = 15  # Diferencia máxima permitida en y para formar un grupo
     # Aplicar Connected Components para encontrar posibles caracteres
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img, connectivity=8, ltype=cv2.CV_32S)
@@ -101,8 +98,8 @@ def detect_patente(img: np.ndarray)-> tuple:
     for character in possible_characters:
         appended = False
         for group in groups:
-            # antes de agregar un caracter al grupo verifica que su coordenada y no esté
-            # alejada de los miembros del grupo una distancia mayor a max_distance_y (15)
+            # Antes de agregar un caracter al grupo verifica que su coordenada "y" no esté
+            # alejada de los miembros del grupo una distancia mayor a max_distance_y (15 pixeles)
             if all(abs(character[1] - member[1]) <= max_distance_y for member in group):
                 group.append(character)
                 appended = True
@@ -178,11 +175,14 @@ def show_results(img: np.ndarray, margin: int)-> None:
     # plt.subplot(122), imshow(img_cropped_rgb, new_fig=False, title="Caracteres en la Patente", colorbar=False)
     # plt.show(block=False)
 
+
+#-------------------
+# Programa Principal
+#-------------------
 '''
-Programa principal
 Lee los archivos .png de la carpeta patentes.
 Los resultados se guardan en una lista de diccionarios con información de cada patente.
-Se muestran los resultados
+Muestra los resultados.
 '''
 path_patentes = 'patentes'
 patentes = [os.path.join(path_patentes, f) for f in os.listdir(path_patentes) if f.endswith('.png')]
@@ -191,7 +191,7 @@ detected_patentes = []
 for patente in patentes:
     img_color  = cv2.imread(patente)
     img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
-    img_patente = img_color.copy()
+    # img_patente = img_color.copy()
     # Realiza el proceso para distintos umbrales hasta que encuentra el patrón XXX XXX y sale
     for umbral in range(110,151):
         img_cleaned = preprocess_image(img_gray, umbral)
