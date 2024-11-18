@@ -4,8 +4,13 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sklearn.cluster import KMeans
 
-# Defininimos función para mostrar imágenes
-def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, colorbar=False, ticks=False):
+#-------------------
+# Funciones
+#-------------------
+'''
+Muestra imágenes por pantalla.
+'''
+def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, colorbar=False, ticks=False)-> None:
     if new_fig:
         plt.figure()
     if color_img:
@@ -20,10 +25,10 @@ def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, color
     if new_fig:
         plt.show(block=blocking)
 
-# ---------------------------------------------------------------------------------------
-# --- Reconstrucción Morgológica --------------------------------------------------------
-# ---------------------------------------------------------------------------------------
-def imreconstruct(marker, mask, kernel=None):
+'''
+Reconstrucción Morgológica.
+'''
+def imreconstruct(marker: np.ndarray, mask: np.ndarray, kernel=None)-> np.ndarray:
     if kernel==None:
         kernel = np.ones((3,3), np.uint8)
     while True:
@@ -34,10 +39,12 @@ def imreconstruct(marker, mask, kernel=None):
         marker = expanded_intersection
     return expanded_intersection
 
-# --- Version 1 ------------------------------------------------
-# Utilizando reconstrucción morfológica
-# NO rellena los huecos que tocan los bordes
-def imfillhole(img):
+'''
+Version 1
+Utilizando reconstrucción morfológica
+NO rellena los huecos que tocan los bordes
+'''
+def imfillhole(img: np.ndarray)-> np.ndarray:
     # img: Imagen binaria de entrada. Valores permitidos: 0 (False), 255 (True).
     mask = np.zeros_like(img)                                                   # Genero mascara para...
     mask = cv2.copyMakeBorder(mask[1:-1,1:-1], 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=int(255)) # ... seleccionar los bordes.
@@ -47,10 +54,12 @@ def imfillhole(img):
     img_fh = cv2.bitwise_not(img_r)                         # La imagen con sus huecos rellenos es igual al complemento de la reconstruccion.
     return img_fh
 
-# --- Version 2 ------------------------------------------------
-# Utilizando cv2.floodFill()
-# SI rellena los huecos que tocan los bordes
-def imfillhole_v2(img):
+'''
+Version 2
+Utilizando cv2.floodFill()
+SI rellena los huecos que tocan los bordes
+'''
+def imfillhole_v2(img: np.ndarray)-> np.ndarray:
     img_flood_fill = img.copy().astype("uint8")             # Genero la imagen de salida
     h, w = img.shape[:2]                                    # Genero una máscara necesaria para cv2.floodFill()
     mask = np.zeros((h+2, w+2), np.uint8)                   # https://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html#floodfill
@@ -59,8 +68,15 @@ def imfillhole_v2(img):
     img_fh = img | img_flood_fill_inv                       # La salida es un OR entre la imagen original y los huecos rellenos.
     return img_fh
 
-def preprocess_image(img):
-    # Filtro de Mediaba
+'''
+Pre-procesa una imagen a escala de grises.
+Técnicas:
+Filtro Mediana - Canny
+Dilatación - Clausura
+Rellenar Huecos - Apertura
+'''
+def preprocess_image(img: np.ndarray)-> np.ndarray:
+    # Filtro de Mediana
     blurred = cv2.medianBlur(img, 9)
     # imshow(blurred)
     # Detectar bordes con Canny
@@ -80,14 +96,40 @@ def preprocess_image(img):
     filled=imfillhole_v2(closed)
     # imshow(filled)
     # apertura
-    # saca el ruido...no sería necesario. Se pueden ignorar las formas pequeñas en componentes conectados
     k3 = 121
     kernel3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(k3, k3))
     filled_open = cv2.morphologyEx(filled, cv2.MORPH_OPEN, kernel3)
     # imshow(filled_open)
+    show_preprocessing_results(blurred, edges, dilated, closed, filled, filled_open)
     return filled_open
 
-def count_dados(img, coords):
+'''
+Muestra las etapas de pre-procesamiento.
+'''
+def show_preprocessing_results(blurred, edges, dilated, closed, filled, filled_open)-> None:
+    fig, axs = plt.subplots(2, 3, figsize=(12, 8), sharex=True, sharey=True)
+    axs = axs.ravel()  # Convertir en un arreglo para iterar fácilmente
+    images = [blurred, edges, dilated, closed, filled, filled_open]
+    titles = [
+        "Filtro de Mediana",
+        "Canny",
+        "Dilatación",
+        "Clausura",
+        "Rellenar Huecos",
+        "Apertura"
+    ]
+    for i in range(6):
+        axs[i].imshow(images[i], cmap='gray')
+        axs[i].set_title(titles[i])
+        axs[i].axis('off')  
+    plt.tight_layout()
+    plt.show()
+
+'''
+Cuenta el puntaje de un dado.
+Técnica: HoughCircles
+'''
+def count_dados(img: np.ndarray, coords: tuple)-> int:
     x, y, w, h = coords
     crop_img = img[y:y+h, x:x+w]
     circles = cv2.HoughCircles(crop_img,cv2.HOUGH_GRADIENT, 1, 10, param1=50, param2=40, minRadius=20, maxRadius=30)
@@ -95,7 +137,11 @@ def count_dados(img, coords):
         return circles.shape[1]
     return 0  # Si no se detectan círculos, asumimos 0 dados
 
-def detect_components(img_gray, img):
+'''
+Detecta los Componentes Conectados en la imagen pre-procesada.
+Técnica: Componentes Conectados - Contornos
+'''
+def detect_components(img_gray: np.ndarray, img: np.ndarray)-> tuple:
     # img_seg = img.copy()
     connectivity = 8
     # Encontrar los componentes conectados
@@ -136,7 +182,11 @@ def detect_components(img_gray, img):
                 dados.append(dado)
     return monedas, dados
 
-def classification(monedas):
+'''
+Clasifica las monedas por sus dimensiones.
+Técnica: KMeans
+'''
+def classification(monedas: list)-> None:
     # Preparar los datos
     data = np.array([[moneda['area'], moneda['perimeter']] for moneda in monedas])
     # Aplicar k-means para agrupar en 3 categorías
@@ -155,9 +205,9 @@ def classification(monedas):
     cluster_sizes.sort(key=lambda x: x[1])  # Orden ascendente por tamaño promedio
     # Asignar valores a los clústeres
     valor_por_cluster = {
-        cluster_sizes[0][0]: '10 centavos',  # Clúster más pequeño
-        cluster_sizes[1][0]: '1 peso',      # Clúster mediano
-        cluster_sizes[2][0]: '50 centavos'  # Clúster más grande
+        cluster_sizes[0][0]: '10 Cts.', # Clúster más pequeño
+        cluster_sizes[1][0]: '1 Peso',  # Clúster mediano
+        cluster_sizes[2][0]: '50 Cts.'  # Clúster más grande
     }
     # Agregar el valor a cada moneda
     for moneda in monedas:
@@ -166,13 +216,16 @@ def classification(monedas):
     # for moneda in monedas:
     #     print(f"Área: {moneda['area']:.2f}, Perímetro: {moneda['perimeter']:.2f}, Valor: {moneda['value']}")
 
-def show_results(monedas, dados):
+'''
+Muestra las monedas y dados clasificados por colores.
+'''
+def show_results(monedas: list, dados: list)-> None:
     # Definir los colores normalizados (0-1) para matplotlib
     colores = {
-        '10 centavos': (0, 0, 255/255),  # Rojo
-        '1 peso': (0, 255/255, 0),      # Verde
-        '50 centavos': (255/255, 0, 0), # Azul
-        'dados': (0, 140/255, 140/255)      # Naranja
+        '10 Cts.': (0, 0, 255/255),     # Rojo
+        '1 Peso': (0, 255/255, 0),      # Verde
+        '50 Cts.': (255/255, 0, 0),     # Azul
+        'Dados': (255/255, 255/255, 0)  # Amarillo
     }
     # Copiar la imagen original para dibujar
     img_result = img_color.copy()
@@ -191,9 +244,9 @@ def show_results(monedas, dados):
     for dado in dados:
         x, y, w, h = dado['coords']
         value = dado['value']
-        rect = patches.Rectangle((x, y), w, h, linewidth=2, edgecolor=colores['dados'], facecolor='none')
+        rect = patches.Rectangle((x, y), w, h, linewidth=2, edgecolor=colores['Dados'], facecolor='none')
         ax.add_patch(rect)
-        ax.text(x, y - 15, "Dado: "+str(value), fontsize=12, color=colores['dados'], weight='bold')
+        ax.text(x, y - 15, "Dado: "+str(value), fontsize=12, color=colores['Dados'], weight='bold')
     # Agregar la leyenda
     leyenda_pos = (20, 50)  # Posición inicial de la leyenda
     linea_espaciado = 150    # Espaciado entre líneas de la leyenda
@@ -207,17 +260,21 @@ def show_results(monedas, dados):
     plt.show(block=False)
 
 
-# ---------------------------------------------------------------------------------------
-# --- Programa Principal ----------------------------------------------------------------
-# ---------------------------------------------------------------------------------------
+#-------------------
+# Programa Principal
+#-------------------
+'''
+Lee el archivo.
+Muestra el resultado.
+'''
 image = cv2.imread('monedas.jpg')
 # imshow(image)
 img_color = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 # imshow(img_color)
-img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)#cv2.imread('monedas.jpg',cv2.IMREAD_GRAYSCALE)
+img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
 # imshow(img)
 img_filled = preprocess_image(img_gray)
-imshow(img_filled)
+# imshow(img_filled)
 monedas, dados = detect_components(img_gray, img_filled)
 classification(monedas)
 show_results(monedas, dados)
