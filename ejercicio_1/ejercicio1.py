@@ -20,12 +20,85 @@ def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, color
 
 
 img = cv2.imread('monedas.jpg', cv2.IMREAD_GRAYSCALE)   # Leemos imagen
-
-
 imshow(img)
 
+img_blur = cv2.medianBlur(img, 5)
+imshow(img_blur,title='suavizada')
+
+th_1 = 0.25*255
+th_2 = 0.60*255
+img_canny = cv2.Canny(img_blur, threshold1=th_1, threshold2=th_2)
+imshow(img_canny,title='canny')
+
+kernel = np.ones((25,25),dtype='uint8')
+img_dilatada = cv2.dilate(img_canny, kernel, iterations=1)
+imshow(img_dilatada,title='dilatada')
+
+def imreconstruct(marker, mask, kernel=None):
+    if kernel==None:
+        kernel = np.ones((3,3), np.uint8)
+    while True:
+        expanded = cv2.dilate(marker, kernel)                               # Dilatacion
+        expanded_intersection = cv2.bitwise_and(src1=expanded, src2=mask)   # Interseccion
+        if (marker == expanded_intersection).all():                         # Finalizacion?
+            break                                                           #
+        marker = expanded_intersection        
+    return expanded_intersection
+
+# --- Rellenado de huecos -----------------------------------------------------
+def imfillhole(img):
+    # img: Imagen binaria de entrada. Valores permitidos: 0 (False), 255 (True).
+    mask = np.zeros_like(img)                                                   # Genero mascara para...
+    mask = cv2.copyMakeBorder(mask[1:-1,1:-1], 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=int(255)) # ... seleccionar los bordes.
+    marker = cv2.bitwise_not(img, mask=mask)                # El marcador lo defino como el complemento de los bordes.
+    img_c = cv2.bitwise_not(img)                            # La mascara la defino como el complemento de la imagen.
+    img_r = imreconstruct(marker=marker, mask=img_c)        # Calculo la reconstrucción R_{f^c}(f_m)
+    img_fh = cv2.bitwise_not(img_r)                         # La imagen con sus huecos rellenos es igual al complemento de la reconstruccion.
+    return img_fh
+
+img_fh = imfillhole(img_dilatada)
+imshow(img_fh,title='relleno de huevos')
+
+
+
+B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (53, 53))
+img_apertura = cv2.morphologyEx(img_fh, cv2.MORPH_OPEN, B) 
+imshow(img_apertura,title='apertura')
+
+
+connectivity = 8
+num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img_apertura, connectivity, cv2.CV_32S)
+monedas = []
+dados = []
+for i in range(1,num_labels):
+    estadistica = stats[i,:]
+    x = estadistica[0]
+    y = estadistica[1]
+    ancho = estadistica[2]
+    alto = estadistica[3]
+    img_obj = img_apertura[y:y+alto,x:x+ancho]
+    contours, hierarchy = cv2.findContours(img_obj, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    cnt = contours[0]
+    area = cv2.contourArea(cnt)
+    perimeter = cv2.arcLength(cnt,True)
+    f_p = round(area / (perimeter**2),4)
+    info_obj = (img_obj,f_p)
+    if ((f_p>=0.0565) and f_p<=0.0647):
+        dados.append(info_obj)       
+    else:
+        monedas.append(info_obj)  
+    
+
+for img,f_p in dados:
+    imshow(img,title=f'{f_p}')    
+    
+
+
+
+
+
 ## Suavizamos la imagen utlizando como filtro paso bajo: GaussianBlur
-img_blur = cv2.medianBlur(img, 15)
+img_blur = cv2.medianBlur(img, 5)
 
 plt.figure()
 ax = plt.subplot(221)
@@ -51,12 +124,14 @@ for i,tup_th in enumerate(umbrales):
 plt.show(block=False)
 
 
-th_1 = 0.01*255
-th_2 = 0.05*255
+th_1 = 0.25*255
+th_2 = 0.60*255
 img_canny = cv2.Canny(img_blur, threshold1=th_1, threshold2=th_2)
 
 
 imshow(img_canny)
+
+
 
 # ---- Dilatación  (Closing) -----------------------
 tamaño_kernel = [3,10,19]
@@ -72,10 +147,17 @@ for i,size in enumerate(tamaño_kernel):
 
 plt.show(block=False)
 
-kernel = np.ones((19,19),dtype='uint8')
+kernel = np.ones((25,25),dtype='uint8')
 img_dilatada = cv2.dilate(img_canny, kernel, iterations=1)
-imshow(img_dilatada)
 
+B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
+img_dilatada = cv2.morphologyEx(img_canny, cv2.MORPH_CLOSE, B)
+    
+imshow(img_dilatada)
+B = cv2.getStructuringElement(cv2.MORPH_RECT, (13, 13))
+img_apertura = cv2.morphologyEx(img_dilatada, cv2.MORPH_OPEN, B) 
+
+imshow(img_apertura,title='apertura')
 # ---------------------------------------------------------------------------------------
 # --- Reconstrucción Morgológica --------------------------------------------------------
 # ---------------------------------------------------------------------------------------
@@ -103,12 +185,12 @@ def imfillhole(img):
 
 img_fh = imfillhole(img_dilatada)
 
-imshow(img_dilatada,title='clausura')
+
 imshow(img_fh,title='relleno')
 
 # --- Apertura (Opening) ------------------------
 
-B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (145, 145))
+B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (53, 53))
 img_apertura = cv2.morphologyEx(img_fh, cv2.MORPH_OPEN, B) 
 
 imshow(img_apertura,title='apertura')
@@ -117,7 +199,7 @@ imshow(img_apertura,title='apertura')
 connectivity = 8
 num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img_apertura, connectivity, cv2.CV_32S)
 
-factores_forma = []
+info_objetos = []
 for i in range(1,num_labels):
     estadistica = stats[i,:]
     x = estadistica[0]
@@ -127,13 +209,22 @@ for i in range(1,num_labels):
     img_obj = img_apertura[y:y+alto,x:x+ancho]
     contours, hierarchy = cv2.findContours(img_obj, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     cnt = contours[0]
-    cnt
     area = cv2.contourArea(cnt)
     perimeter = cv2.arcLength(cnt,True)
     f_p = round(area / (perimeter**2),4)
-    factores_forma.append(f_p)
+    info_obj = (img_obj,f_p)
+    info_objetos.append(info_obj)
     
-factores_forma                
+dados = []
+monedas = []
+for img,f_p in info_objetos:
+    #imshow(img,title=f'{f_p}')    
+    if ((f_p>=0.00565) and f_p<=0.0647):
+        dados.append((img,f_p))       
+    else:
+        monedas.append((img,f_p))  
+
+
 
 
 
