@@ -41,12 +41,33 @@ def preprocess_image(img: np.ndarray, umbral: int)-> np.ndarray:
     # imshow(binary_img)
     # top hat
     se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    g3 = cv2.morphologyEx(img, kernel=se, op=cv2.MORPH_TOPHAT)
+    tophat_img = cv2.morphologyEx(img, kernel=se, op=cv2.MORPH_TOPHAT)
     # binaria de top hat
-    th1, binary_img1 = cv2.threshold(g3.astype(np.uint8), 53, 1, cv2.THRESH_BINARY)
+    th1, binary_tophat_img = cv2.threshold(tophat_img.astype(np.uint8), 53, 1, cv2.THRESH_BINARY)
     # Interseccion
-    intersection = np.bitwise_and(binary_img, binary_img1)
+    intersection = np.bitwise_and(binary_img, binary_tophat_img)
+    # show_preprocessing_results(binary_img, tophat_img, binary_tophat_img, intersection)
     return intersection
+
+'''
+Muestra las etapas de pre-procesamiento.
+'''
+def show_preprocessing_results(binary_img, tophat_img, binary_tophat_img, intersection)-> None:
+    fig, axs = plt.subplots(2, 2, figsize=(12, 8), sharex=True, sharey=True)
+    axs = axs.ravel()  # Convertir en un arreglo para iterar fácilmente
+    images = [binary_img, tophat_img, binary_tophat_img, intersection]
+    titles = [
+        "Original Binaria",
+        "Top Hat",
+        "Top Hat Binaria",
+        "Intersección"
+    ]
+    for i in range(4):
+        axs[i].imshow(images[i], cmap='gray')
+        axs[i].set_title(titles[i])
+        axs[i].axis('off')  
+    plt.tight_layout()
+    plt.show()
 
 '''
 Filtra de la imagen todos los componentes conectados que cuyas áreas están fuera de los límites establecidos
@@ -139,7 +160,7 @@ def detect_patente(img: np.ndarray)-> tuple:
 Muestra la imagen original con la patente recuadrada y
 un crop de la zona de la patente con los carateres recuadrados.
 '''
-def show_results(img: np.ndarray, margin: int)-> None:
+def show_results(img: np.ndarray, patente: dict, margin: int)-> None:
     img_with_patente = img.copy()
     # Definir las coordenadas de la patente con margen
     x_start, y_start, x_end, y_end = patente["x_start"], patente["y_start"], patente["x_end"], patente["y_end"]
@@ -148,22 +169,19 @@ def show_results(img: np.ndarray, margin: int)-> None:
     x_end_margin = x_end + margin
     y_end_margin = y_end + margin
     # Dibujar el rectángulo alrededor de la patente con el margen
-    cv2.rectangle(img_with_patente, (x_start_margin, y_start_margin), (x_end_margin, y_end_margin), (255, 0, 0), 2)
+    cv2.rectangle(img_with_patente, (x_start_margin, y_start_margin), (x_end_margin, y_end_margin), (0, 0, 255), 2)
     # Recortar la zona de la patente con margen
     img_cropped = img[y_start_margin:y_end_margin, x_start_margin:x_end_margin].copy()
     # Dibujar rectángulos alrededor de los caracteres en la zona recortada
     for char in patente["characters"]:
         char_x, char_y, char_w, char_h = char[0] - x_start_margin, char[1] - y_start_margin, char[2], char[3]
-        cv2.rectangle(img_cropped, (char_x, char_y), (char_x + char_w, char_y + char_h), (255, 0, 0), 1)
-    # Convertir las imágenes a formato RGB para Matplotlib
-    img_with_patente_rgb = cv2.cvtColor(img_with_patente, cv2.COLOR_BGR2RGB)
-    img_cropped_rgb = cv2.cvtColor(img_cropped, cv2.COLOR_BGR2RGB)
+        cv2.rectangle(img_cropped, (char_x, char_y), (char_x + char_w, char_y + char_h), (0, 0, 255), 1)
     # Crear subplots
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
-    axes[0].imshow(img_with_patente_rgb)
+    axes[0].imshow(img_with_patente)
     axes[0].set_title("Area de la Patente en la Imagen")
     axes[0].axis("off")
-    axes[1].imshow(img_cropped_rgb)
+    axes[1].imshow(img_cropped)
     axes[1].set_title("Caracteres en la Patente")
     axes[1].axis("off")
     # Mostrar los subplots
@@ -175,23 +193,11 @@ def show_results(img: np.ndarray, margin: int)-> None:
     # plt.subplot(122), imshow(img_cropped_rgb, new_fig=False, title="Caracteres en la Patente", colorbar=False)
     # plt.show(block=False)
 
-
-#-------------------
-# Programa Principal
-#-------------------
 '''
-Lee los archivos .png de la carpeta patentes.
-Los resultados se guardan en una lista de diccionarios con información de cada patente.
-Muestra los resultados.
+Realiza un proceso iterativo con distintos umbrales de binarización
+hasta obtener una imagen donde puede reconocerse el patrón XXX XXX de una patente
 '''
-path_patentes = 'patentes'
-patentes = [os.path.join(path_patentes, f) for f in os.listdir(path_patentes) if f.endswith('.png')]
-# Diccionario para almacenar la información de las patentes detectadas
-detected_patentes = []
-for patente in patentes:
-    img_color  = cv2.imread(patente)
-    img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
-    # img_patente = img_color.copy()
+def identify_patente(img):
     # Realiza el proceso para distintos umbrales hasta que encuentra el patrón XXX XXX y sale
     for umbral in range(110,151):
         img_cleaned = preprocess_image(img_gray, umbral)
@@ -200,22 +206,45 @@ for patente in patentes:
         # Visualizar el resultado
         if result is not None:
             x_start, x_end, y_start, y_end, characters = result
-            # print(f"Patente detectada en el área: ({x_start}, {y_start}) a ({x_end}, {y_end})")
-            # Dibujar una caja alrededor de la patente en la imagen
-            # cv2.rectangle(img_patente, (x_start, y_start), (x_end, y_end), (0, 255, 0), 2)
-            # imshow(img_patente)
             # Almacenar los datos en el diccionario
             detected_patente = {
-                "file": patente,
                 "x_start": x_start,
                 "x_end": x_end,
                 "y_start": y_start,
                 "y_end": y_end,
                 "characters": characters
             }
-            detected_patentes.append(detected_patente)
-            break
+            return detected_patente
 
-for patente in detected_patentes:
-    img = cv2.imread(patente["file"])
-    show_results(img, 5)
+#-------------------
+# Programa Principal
+#-------------------
+'''
+Identifica una patente
+Lee un archivos .png de la carpeta patentes.
+Muestra los resultados.
+'''
+img = cv2.imread("patentes\img01.png")
+img_color = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+detected_patente = identify_patente(img_gray)
+show_results(img_color, detected_patente, 5)
+
+
+'''
+Identifica todas las patentes en la carpeta "patentes"
+Lee los archivos .png de la carpeta patentes.
+Muestra los resultados.
+'''
+path_patentes = 'patentes'
+files = [os.path.join(path_patentes, f) for f in os.listdir(path_patentes) if f.endswith('.png')]
+# Diccionario para almacenar la información de las patentes detectadas
+detected_patentes = []
+for file in files:
+    img = cv2.imread(file)
+    img_color = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    detected_patente = identify_patente(img_gray)
+    show_results(img_color, detected_patente, 5)
