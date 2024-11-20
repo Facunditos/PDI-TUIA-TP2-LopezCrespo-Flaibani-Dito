@@ -100,7 +100,7 @@ def preprocess_image(img: np.ndarray)-> np.ndarray:
     kernel3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(k3, k3))
     filled_open = cv2.morphologyEx(filled, cv2.MORPH_OPEN, kernel3)
     # imshow(filled_open)
-    show_preprocessing_results(blurred, edges, dilated, closed, filled, filled_open)
+    # show_preprocessing_results(blurred, edges, dilated, closed, filled, filled_open)
     return filled_open
 
 '''
@@ -123,37 +123,57 @@ def show_preprocessing_results(blurred, edges, dilated, closed, filled, filled_o
         axs[i].set_title(titles[i])
         axs[i].axis('off')  
     plt.tight_layout()
-    plt.show()
+    plt.show(block=False)
 
 '''
 Cuenta el puntaje de un dado.
 Técnica: HoughCircles
 '''
-def count_dados(img: np.ndarray, coords: tuple)-> int:
+def count_dados(img: np.ndarray, coords: tuple) -> int:
     x, y, w, h = coords
     crop_img = img[y:y+h, x:x+w]
-    circles = cv2.HoughCircles(crop_img,cv2.HOUGH_GRADIENT, 1, 10, param1=50, param2=40, minRadius=20, maxRadius=30)
-    if circles is not None:
-        return circles.shape[1]
-    return 0  # Si no se detectan círculos, asumimos 0 dados
+    # Detectar círculos usando HoughCircles
+    # circles = cv2.HoughCircles(crop_img,cv2.HOUGH_GRADIENT, 1, 10, param1=50, param2=40, minRadius=20, maxRadius=30)
+    circles = cv2.HoughCircles(
+        crop_img,
+        cv2.HOUGH_GRADIENT,
+        dp=1,
+        minDist=10,
+        param1=50,
+        param2=40,
+        minRadius=20,
+        maxRadius=30
+    )
+    # Dibujar los círculos detectados en la imagen
+    # output_img = cv2.cvtColor(crop_img, cv2.COLOR_GRAY2BGR)  # Convertir a color para dibujar círculos
+    # if circles is not None:
+    #     circles = np.uint16(np.around(circles))
+    #     for circle in circles[0, :]:
+    #         center = (circle[0], circle[1])  # Coordenadas del centro
+    #         radius = circle[2]              # Radio del círculo
+    #         print(f"Dibujando círculo en {center} con radio {radius}.")
+    #         cv2.circle(output_img, center, radius, (0, 255, 0), 2)  # Dibujar contorno
+    #         cv2.circle(output_img, center, 2, (0, 0, 255), 3)       # Dibujar centro
+    # plt.figure(figsize=(8, 6))
+    # plt.title("Área de los Dados con Círculos Detectados")
+    # plt.imshow(cv2.cvtColor(output_img, cv2.COLOR_BGR2RGB))  # Convertir a RGB para matplotlib
+    # plt.axis("off")
+    # plt.show(block=False)
+    return circles.shape[1] if circles is not None else 0
 
 '''
 Detecta los Componentes Conectados en la imagen pre-procesada.
 Técnica: Componentes Conectados - Contornos
 '''
 def detect_components(img_gray: np.ndarray, img: np.ndarray)-> tuple:
-    # img_seg = img.copy()
+    # img_seg = img_gray.copy()
     connectivity = 8
     # Encontrar los componentes conectados
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img, connectivity, cv2.CV_32S)
-    # Crear una imagen de salida para los componentes que cumplen con el área mínima
-    # output_img = np.zeros_like(img)
     monedas = []
     dados = []
-    # Iterar sobre los componentes y procesar solo los que cumplen el área mínima
+    # Iterar sobre los componentes
     for i in range(1, num_labels):  # Ignorar el componente 0 (fondo)
-        # Marcar los píxeles del componente en la imagen de salida
-        # output_img[labels == i] = 255  # Solo copiar los componentes que cumplen el área mínima
         x, y, w, h = stats[i, cv2.CC_STAT_LEFT], stats[i, cv2.CC_STAT_TOP], stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT]
         obj = (labels == i).astype(np.uint8)
         contours, hierarchy = cv2.findContours(obj, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
@@ -164,6 +184,7 @@ def detect_components(img_gray: np.ndarray, img: np.ndarray)-> tuple:
             # Calcular el perímetro del contorno
             perimeter = cv2.arcLength(contour, closed=True)
             print(f"Perímetro del contorno: {perimeter}")
+            # Detectar círculos. Relación: P^2 /A = 12.57 (da un nro mayor)
             if 14 < perimeter**2/area < 15: #12.57
                 moneda = {
                 'coords': (x, y, w, h),
@@ -173,6 +194,7 @@ def detect_components(img_gray: np.ndarray, img: np.ndarray)-> tuple:
                 'cluster': 0,
                 }
                 monedas.append(moneda)
+                # cv2.rectangle(img_seg, (x, y), (x + w, y + h), (0, 255, 0), 2)
             else:
                 dado = {
                 'coords': (x, y, w, h),
@@ -180,6 +202,9 @@ def detect_components(img_gray: np.ndarray, img: np.ndarray)-> tuple:
                 }
                 dado['value'] = count_dados(img_gray, dado['coords'])
                 dados.append(dado)
+                # cv2.rectangle(img_seg, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    # Mostrar la imagen segmentada con los bounding boxes
+    # imshow(img_seg)
     return monedas, dados
 
 '''
@@ -212,9 +237,29 @@ def classification(monedas: list)-> None:
     # Agregar el valor a cada moneda
     for moneda in monedas:
         moneda['value'] = valor_por_cluster[moneda['cluster']]
+
     # # Imprimir los resultados
     # for moneda in monedas:
     #     print(f"Área: {moneda['area']:.2f}, Perímetro: {moneda['perimeter']:.2f}, Valor: {moneda['value']}")
+
+    # Visualizar los clústeres
+    # plt.figure(figsize=(10, 6))
+    # # Colores para los clústeres
+    # colors = ['red', 'green', 'blue']
+    # for cluster in range(3):
+    #     cluster_points = data[labels == cluster]
+    #     plt.scatter(cluster_points[:, 0], cluster_points[:, 1],
+    #                 color=colors[cluster], label=f"Cluster {cluster} ({valor_por_cluster[cluster]})")
+    # # Mostrar centros de los clústeres
+    # centers = kmeans.cluster_centers_
+    # plt.scatter(centers[:, 0], centers[:, 1], c='yellow', marker='x', s=200, label='Centros de clúster')
+    # # Etiquetas y leyenda
+    # plt.title("Clusters de Monedas según Área y Perímetro")
+    # plt.xlabel("Área")
+    # plt.ylabel("Perímetro")
+    # plt.legend()
+    # plt.grid(True)
+    # plt.show(block=False)
 
 '''
 Muestra las monedas y dados clasificados por colores.
