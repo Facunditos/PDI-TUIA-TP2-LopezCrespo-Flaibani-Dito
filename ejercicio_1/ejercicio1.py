@@ -20,7 +20,7 @@ def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, color
 
 
 img = cv2.imread('monedas.jpg', cv2.IMREAD_GRAYSCALE)   # Leemos imagen
-imshow(img)
+imshow(img,title='gris')
 
 img_blur = cv2.medianBlur(img, 5)
 imshow(img_blur,title='suavizada')
@@ -76,25 +76,35 @@ for i in range(1,num_labels):
     y = estadistica[1]
     ancho = estadistica[2]
     alto = estadistica[3]
+    area_caja = estadistica[4]
     img_obj = img_apertura[y:y+alto,x:x+ancho]
     contours, hierarchy = cv2.findContours(img_obj, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     cnt = contours[0]
     area = cv2.contourArea(cnt)
     perimeter = cv2.arcLength(cnt,True)
     f_p = round(area / (perimeter**2),4)
-    info_obj = (img_obj,f_p)
+    info_obj = {
+        'img': img_obj,
+        'area_caja': area_caja,
+        'f_p': f_p,
+    }
     if ((f_p>=0.0565) and f_p<=0.0647):
         dados.append(info_obj)       
     else:
         monedas.append(info_obj)  
-    
 
-for img,f_p in dados:
-    imshow(img,title=f'{f_p}')    
-    
+for dado in dados:
+    f_p = dado['f_p']
+    imshow(dado['img'],title=f'factor de forma: {f_p}')
 
+areas_monedas = [moneda['area_caja'] for moneda in monedas]
+[print(int(area)) for area in areas_monedas]
 
+for moneda in monedas:
+    f_p = moneda['f_p']
+    imshow(moneda['img'],title=f'factor de forma: {f_p}')
 
+imshow(dados[0]['img'])
 
 
 ## Suavizamos la imagen utlizando como filtro paso bajo: GaussianBlur
