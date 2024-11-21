@@ -30,7 +30,7 @@ th_2 = 0.60*255
 img_canny = cv2.Canny(img_blur, threshold1=th_1, threshold2=th_2)
 imshow(img_canny,title='canny')
 
-kernel = np.ones((25,25),dtype='uint8')
+kernel = np.ones((23,23),dtype='uint8')
 img_dilatada = cv2.dilate(img_canny, kernel, iterations=1)
 imshow(img_dilatada,title='dilatada')
 
@@ -59,15 +59,17 @@ def imfillhole(img):
 img_fh = imfillhole(img_dilatada)
 imshow(img_fh,title='relleno de huecos')
 
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (33, 33) )
+img_erosion = cv2.erode(img_fh, kernel, iterations=1)
+imshow(img_erosion,title='erosion')
 
-
-B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (83, 83))
+B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (199, 199))
 img_apertura = cv2.morphologyEx(img_fh, cv2.MORPH_OPEN, B) 
 imshow(img_apertura,title='apertura')
 
 
 connectivity = 8
-num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img_apertura, connectivity, cv2.CV_32S)
+num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img_erosion, connectivity, cv2.CV_32S)
 monedas = []
 dados = []
 for i in range(1,num_labels):
@@ -77,13 +79,14 @@ for i in range(1,num_labels):
     ancho = estadistica[2]
     alto = estadistica[3]
     area_caja = estadistica[4]
-    img_obj = img_apertura[y:y+alto,x:x+ancho]
+    img_obj = img_erosion[y:y+alto,x:x+ancho]
     contours, hierarchy = cv2.findContours(img_obj, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     cnt = contours[0]
     area = cv2.contourArea(cnt)
     perimeter = cv2.arcLength(cnt,True)
     f_p = round(area / (perimeter**2),4)
     info_obj = {
+        'coor': (x,y,ancho,alto) ,
         'img': img_obj,
         'area_obj': area,
         'area_caja': area_caja,
@@ -94,6 +97,8 @@ for i in range(1,num_labels):
     else:
         monedas.append(info_obj)  
 
+for moneda in dados:
+    moneda['area_obj']
 
 moneda_i_3 = monedas[3]
 moneda_i_3['area_obj']
@@ -111,6 +116,8 @@ moneda_i_5['area_caja']
 imshow(moneda_i_5['img'])
 
 moneda_i_6 = monedas[6]
+x,y,ancho,alto = moneda_i_6['coor']
+imshow(img[y:y+alto,x:x+ancho])
 moneda_i_6['area_obj']
 moneda_i_6['area_caja']
 imshow(moneda_i_6['img'])
@@ -119,6 +126,15 @@ moneda_i_7 = monedas[7]
 moneda_i_7['area_obj']
 moneda_i_7['area_caja']
 imshow(moneda_i_7['img'])
+
+
+moneda_i_9 = monedas[9]
+x,y,ancho,alto = moneda_i_9['coor']
+moneda_i_9['area_obj']
+moneda_i_9['area_caja']
+imshow(moneda_i_9['img'])
+
+imshow(img[y:y+alto,x:x+ancho])
 
 for dado in dados:
     f_p = dado['f_p']
