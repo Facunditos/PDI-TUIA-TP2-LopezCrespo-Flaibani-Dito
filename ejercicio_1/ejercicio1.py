@@ -57,11 +57,11 @@ def imfillhole(img):
     return img_fh
 
 img_fh = imfillhole(img_dilatada)
-imshow(img_fh,title='relleno de huevos')
+imshow(img_fh,title='relleno de huecos')
 
 
 
-B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (53, 53))
+B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (83, 83))
 img_apertura = cv2.morphologyEx(img_fh, cv2.MORPH_OPEN, B) 
 imshow(img_apertura,title='apertura')
 
@@ -85,6 +85,7 @@ for i in range(1,num_labels):
     f_p = round(area / (perimeter**2),4)
     info_obj = {
         'img': img_obj,
+        'area_obj': area,
         'area_caja': area_caja,
         'f_p': f_p,
     }
@@ -93,11 +94,68 @@ for i in range(1,num_labels):
     else:
         monedas.append(info_obj)  
 
+
+moneda_i_3 = monedas[3]
+moneda_i_3['area_obj']
+moneda_i_3['area_caja']
+imshow(moneda_i_3['img'])
+
+moneda_i_4 = monedas[4]
+moneda_i_4['area_obj']
+moneda_i_4['area_caja']
+imshow(moneda_i_4['img'])
+
+moneda_i_5 = monedas[5]
+moneda_i_5['area_obj']
+moneda_i_5['area_caja']
+imshow(moneda_i_5['img'])
+
+moneda_i_6 = monedas[6]
+moneda_i_6['area_obj']
+moneda_i_6['area_caja']
+imshow(moneda_i_6['img'])
+
+moneda_i_7 = monedas[7]
+moneda_i_7['area_obj']
+moneda_i_7['area_caja']
+imshow(moneda_i_7['img'])
+
 for dado in dados:
     f_p = dado['f_p']
     imshow(dado['img'],title=f'factor de forma: {f_p}')
 
-areas_monedas = [moneda['area_caja'] for moneda in monedas]
+areas_monedas = [(moneda['area_caja'],idx_moneda) for idx_moneda,moneda in enumerate(monedas)]
+areas_monedas_ord_asc = sorted(areas_monedas)
+deltas = []
+for i,area_moneda in enumerate(areas_monedas_ord_asc):
+    area,idx_moneda = area_moneda
+    if (i==0):
+        continue
+    delta =  area - areas_monedas_ord_asc[i-1][0]
+    deltas.append(delta)
+
+[print(f"{delta:,d}") for delta in deltas]
+
+for delta in deltas:
+    print(f"{delta:,d}")
+
+delta_sep_cluster = np.mean(deltas)
+
+monedas_10_c = []
+monedas_50_c = []
+monedas_100_c = []
+
+i = 0
+while i<len():
+    cluster = []
+
+
+persona = ('facundo',35)    
+
+nombre,edad = persona
+
+
+
 [print(int(area)) for area in areas_monedas]
 
 for moneda in monedas:
