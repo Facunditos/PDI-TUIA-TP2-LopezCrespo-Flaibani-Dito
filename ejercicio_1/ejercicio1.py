@@ -30,7 +30,7 @@ th_2 = 0.60*255
 img_canny = cv2.Canny(img_blur, threshold1=th_1, threshold2=th_2)
 imshow(img_canny,title='canny')
 
-kernel = np.ones((23,23),dtype='uint8')
+kernel = np.ones((29,29),dtype='uint8')
 img_dilatada = cv2.dilate(img_canny, kernel, iterations=1)
 imshow(img_dilatada,title='dilatada')
 
@@ -59,14 +59,9 @@ def imfillhole(img):
 img_fh = imfillhole(img_dilatada)
 imshow(img_fh,title='relleno de huecos')
 
-kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (33, 33) )
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (39, 39) )
 img_erosion = cv2.erode(img_fh, kernel, iterations=1)
 imshow(img_erosion,title='erosion')
-
-B = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (199, 199))
-img_apertura = cv2.morphologyEx(img_fh, cv2.MORPH_OPEN, B) 
-imshow(img_apertura,title='apertura')
-
 
 connectivity = 8
 num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img_erosion, connectivity, cv2.CV_32S)
@@ -92,55 +87,23 @@ for i in range(1,num_labels):
         'area_caja': area_caja,
         'f_p': f_p,
     }
-    if ((f_p>=0.0565) and f_p<=0.0647):
+    # 0.657 es el factor de forma de la moneda que más se aleja al factor de forma de un círculo (0.0796)
+    if (f_p<0.0657):
         dados.append(info_obj)       
     else:
         monedas.append(info_obj)  
 
-for moneda in dados:
-    moneda['area_obj']
+for moneda in monedas:
+    x,y,ancho,alto = moneda['coor']
+    imshow(img[y:y+alto,x:x+ancho])
 
-moneda_i_3 = monedas[3]
-moneda_i_3['area_obj']
-moneda_i_3['area_caja']
-imshow(moneda_i_3['img'])
-
-moneda_i_4 = monedas[4]
-moneda_i_4['area_obj']
-moneda_i_4['area_caja']
-imshow(moneda_i_4['img'])
-
-moneda_i_5 = monedas[5]
-moneda_i_5['area_obj']
-moneda_i_5['area_caja']
-imshow(moneda_i_5['img'])
-
-moneda_i_6 = monedas[6]
-x,y,ancho,alto = moneda_i_6['coor']
-imshow(img[y:y+alto,x:x+ancho])
-moneda_i_6['area_obj']
-moneda_i_6['area_caja']
-imshow(moneda_i_6['img'])
-
-moneda_i_7 = monedas[7]
-moneda_i_7['area_obj']
-moneda_i_7['area_caja']
-imshow(moneda_i_7['img'])
-
-
-moneda_i_9 = monedas[9]
-x,y,ancho,alto = moneda_i_9['coor']
-moneda_i_9['area_obj']
-moneda_i_9['area_caja']
-imshow(moneda_i_9['img'])
-
-imshow(img[y:y+alto,x:x+ancho])
 
 for dado in dados:
-    f_p = dado['f_p']
-    imshow(dado['img'],title=f'factor de forma: {f_p}')
+    x,y,ancho,alto = dado['coor']
+    imshow(img[y:y+alto,x:x+ancho])    
 
-areas_monedas = [(moneda['area_caja'],idx_moneda) for idx_moneda,moneda in enumerate(monedas)]
+
+areas_monedas = [(moneda['area_obj'],idx_moneda) for idx_moneda,moneda in enumerate(monedas)]
 areas_monedas_ord_asc = sorted(areas_monedas)
 deltas = []
 for i,area_moneda in enumerate(areas_monedas_ord_asc):
