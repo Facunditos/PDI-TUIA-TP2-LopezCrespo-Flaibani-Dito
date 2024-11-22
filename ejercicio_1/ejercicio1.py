@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt 
+from matplotlib.patches import Rectangle 
+
 
 
 def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, colorbar=True, ticks=False):
@@ -18,6 +20,7 @@ def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, color
     if new_fig:        
         plt.show(block=blocking)
 
+# ----------------------- Ejercicio A -----------------------------------------------
 
 img = cv2.imread('monedas.jpg', cv2.IMREAD_GRAYSCALE)   # Leemos imagen
 imshow(img,title='gris')
@@ -87,7 +90,7 @@ for i in range(1,num_labels):
         'area_caja': area_caja,
         'f_p': f_p,
     }
-    # 0.657 es el factor de forma de la moneda que más se aleja al factor de forma de un círculo (0.0796)
+    # Asumimos que si factor de forma del objeto es menor a 0.657 dista de ser un círculo, por ende, es un dado
     if (f_p<0.0657):
         dados.append(info_obj)       
     else:
@@ -102,23 +105,118 @@ for dado in dados:
     x,y,ancho,alto = dado['coor']
     imshow(img[y:y+alto,x:x+ancho])    
 
+plt.figure(), plt.imshow(img, cmap='gray')
 
-areas_monedas = [(moneda['area_obj'],idx_moneda) for idx_moneda,moneda in enumerate(monedas)]
-areas_monedas_ord_asc = sorted(areas_monedas)
+for il, dado in enumerate(dados):
+    x,y,ancho,alto = dado['coor']
+    rect = Rectangle((x,y), ancho, alto, linewidth=1, edgecolor='r', facecolor='none')   
+    ax = plt.gca()          
+    ax.add_patch(rect)     
+
+for il, moneda in enumerate(monedas):
+    x,y,ancho,alto = moneda['coor']
+    rect = Rectangle((x,y), ancho, alto, linewidth=1, edgecolor='b', facecolor='none')   
+    ax = plt.gca()          
+    ax.add_patch(rect)  
+
+plt.show(block=False)
+
+# ----------------------- Ejercicio B -----------------------------------------------
+
+# Construimos una lista de listas. Cada lista reportará el área de la moneda, su índice y su número de cluster
+info_monedas = [[moneda['area_obj'],idx_moneda] for idx_moneda,moneda in enumerate(monedas)]
+info_monedas.sort()
+areas_monedas_ord_asc = [moneda[0] for moneda in info_monedas]
+
+
 deltas = []
 for i,area_moneda in enumerate(areas_monedas_ord_asc):
-    area,idx_moneda = area_moneda
     if (i==0):
         continue
-    delta =  area - areas_monedas_ord_asc[i-1][0]
+    area_moneda_anterior = areas_monedas_ord_asc[i-1]
+    delta =  area_moneda - area_moneda_anterior
     deltas.append(delta)
 
-[print(f"{delta:,d}") for delta in deltas]
+q1 = np.percentile(deltas, 25)
+q3 = np.percentile(deltas, 75)
+iqr = q3 - q1
+delta_sep_clusters = q3 + iqr *1.5 
 
-for delta in deltas:
-    print(f"{delta:,d}")
 
-delta_sep_cluster = np.mean(deltas)
+plt.figure()
+ax = plt.subplot(221)
+plt.bar(x=range(1,len(monedas)+1),height=areas_monedas_ord_asc)
+plt.title('area de las monedas ordenadas ascendentemente')
+plt.xlabel('número de moneda')
+plt.ylabel('área')
+plt.xticks(range(1,len(monedas)+1))
+
+plt.subplot(222)
+plt.bar(x=range(2,len(deltas)+2),height=deltas)
+plt.axhline(delta_sep_clusters,color='blue',label=f'delta atípico',ls='--')
+plt.legend()
+plt.title('Aumento del área entre monedas')
+plt.xlabel('número de moneda')
+plt.ylabel('delta')
+plt.xticks(range(2,len(deltas)+2))
+
+plt.show(block=False)
+
+# Sabemos que la moneda 1 inexorablemente pertecene al primer cluster
+numero_cluster = 1
+info_monedas[0].append(numero_cluster)
+for i,delta_obs in enumerate(deltas):
+    if (delta_obs<delta_sep_clusters):
+        info_monedas[i+1].append(numero_cluster)
+    else:
+        numero_cluster +=1
+        info_monedas[i+1].append(numero_cluster)
+# Agregamos para cada moneda info sobre el cluster al cual pertence
+for info_moneda in info_monedas:
+    idx_moneda = info_moneda[1]
+    numero_cluster = info_moneda[2]
+    monedas[idx_moneda]['numero_cluster'] = numero_cluster
+
+print(f'En función al área de las monedas se pueden distinguir {numero_cluster} clusters o tipos de monedas diferenes')
+
+# Asociamos el cluster 1 con las monedas de 10 centavos, cluster 2 con las de 1 peso y cluster 3 con las de 50 centavos
+
+plt.figure(), plt.imshow(img, cmap='gray')
+
+for il, moneda in enumerate(monedas):
+    x,y,ancho,alto = moneda['coor']
+    num_cluster = moneda['numero_cluster']
+    if num_cluster == 1:
+        rect = Rectangle((x,y), ancho, alto, linewidth=1, edgecolor='r', facecolor='none')   
+        conteo +=10
+    elif num_cluster == 2:
+        conteo +=100
+    else:
+        conteo +=50
+    ax = plt.gca()          
+    ax.add_patch(rect)   
+
+plt.show(block=False)
+
+           
+conteo = 0
+for moneda in monedas:
+    num_cluster = moneda['numero_cluster']
+    if num_cluster == 1:
+        conteo +=10
+    elif num_cluster == 2:
+        conteo +=100
+    else:
+        conteo +=50
+    print('num_cluster',num_cluster)    
+    print('conteo',conteo)    
+
+pesos = conteo // 100
+centavos = conteo % 100
+print(f'El conteno de monedas arroja que sobre la mesa hay {pesos} pesos con {centavos} centavos')        
+
+
+
 
 monedas_10_c = []
 monedas_50_c = []
