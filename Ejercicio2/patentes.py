@@ -31,7 +31,7 @@ Devuelve la intersección entre ambas imágenes binarias.
 '''
 # En la imagen 03 el caracter toca el borde inferior izquierdo después de la binarización
 # Si se aumenta el umbral se dincontinúa la letra D
-# La imagen resultante de la transformación Top Hat no toca ese borde, pero los caracteres se engrosan 
+# La imagen resultante de la transformación Top Hat no toca ese borde, pero los caracteres se engrosan
 # y tocan en otros lugares el borde.
 # la intersección de las dos imágenes soluciona el problema
 # y mejora las demás imágenes, por lo que se aplica a todas por igual
@@ -43,7 +43,14 @@ def preprocess_image(img: np.ndarray, umbral: int)-> np.ndarray:
     se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
     tophat_img = cv2.morphologyEx(img, kernel=se, op=cv2.MORPH_TOPHAT)
     # binaria de top hat
-    th1, binary_tophat_img = cv2.threshold(tophat_img.astype(np.uint8), 53, 1, cv2.THRESH_BINARY)
+    th1, binary_tophat_img = cv2.threshold(tophat_img.astype(np.uint8), 55, 1, cv2.THRESH_BINARY)
+    # # Binaria de Top Hat con Otsu
+    # _, binary_tophat_img = cv2.threshold(
+    #     tophat_img.astype(np.uint8),
+    #     0,  # Ignorado con THRESH_OTSU
+    #     1,  # Valor máximo del píxel
+    #     cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    # )
     # Interseccion
     intersection = np.bitwise_and(binary_img, binary_tophat_img)
     # show_preprocessing_results(binary_img, tophat_img, binary_tophat_img, intersection)
@@ -65,9 +72,9 @@ def show_preprocessing_results(binary_img, tophat_img, binary_tophat_img, inters
     for i in range(4):
         axs[i].imshow(images[i], cmap='gray')
         axs[i].set_title(titles[i])
-        axs[i].axis('off')  
+        axs[i].axis('off')
     plt.tight_layout()
-    plt.show()
+    plt.show(block=False)
 
 '''
 Filtra de la imagen todos los componentes conectados que cuyas áreas están fuera de los límites establecidos
@@ -76,7 +83,7 @@ y que no tengan una relación de aspecto largo/ancho entre 1,5 y 3 (formato de l
 def filter_area_aspect(img: np.ndarray)-> np.ndarray:
     connectivity = 8
     min_area = 16
-    max_area = 100
+    max_area = 200
     # Encontrar los componentes conectados
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img, connectivity, cv2.CV_32S)
     # Crear una imagen de salida para los componentes que cumplen con el área mínima y relación de aspecto
@@ -87,8 +94,10 @@ def filter_area_aspect(img: np.ndarray)-> np.ndarray:
         if (area > min_area) & (area < max_area):
             h, w = stats[i, cv2.CC_STAT_HEIGHT], stats[i, cv2.CC_STAT_WIDTH]
             h_w_ratio = h / w
+            # if 1.5 <= h_w_ratio <= 3:
             if 1.5 <= h_w_ratio <= 3:
                 output_img[labels == i] = 255
+    # imshow(output_img)
     return output_img
 
 '''
@@ -97,62 +106,55 @@ separados en dos grupos de 3 caracteres cada uno.
 Patrón buscado XXX XXX
 Previamente filtra los componentes cuya coordenada y está alejada de los del resto del grupo.
 '''
-def detect_patente(img: np.ndarray)-> tuple:
-    c_min = 5   # mínima distancia entre caracteres de un grupo
-    c_max = 16  # máxima distancia entre caracteres de un grupo
-    e_min = 10  # mínima distancia entre los dos grupos
-    e_max = 30  # máxima distancia entre los dos grupos
-    max_distance_y = 15  # Diferencia máxima permitida en y para formar un grupo
-    # Aplicar Connected Components para encontrar posibles caracteres
+def detect_patente(img: np.ndarray) -> tuple:
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img, connectivity=8, ltype=cv2.CV_32S)
-    # Filtrar componentes que parezcan caracteres según su relación de aspecto
+    # Filtrar componentes válidos y calcular alturas
     possible_characters = []
-    for i in range(1, num_labels):  # Empezamos en 1 para ignorar el fondo
-        h, w = stats[i, cv2.CC_STAT_HEIGHT], stats[i, cv2.CC_STAT_WIDTH]
-        x = stats[i, cv2.CC_STAT_LEFT]
-        y = stats[i, cv2.CC_STAT_TOP]
+    heights = []
+    for i in range(1, num_labels):  # Ignorar el fondo
+        x, y, w, h, area = stats[i, cv2.CC_STAT_LEFT], stats[i, cv2.CC_STAT_TOP], stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT], stats[i, cv2.CC_STAT_AREA]
         possible_characters.append((x, y, w, h, centroids[i]))
-    # Ordenar los posibles caracteres de izquierda a derecha
-    possible_characters.sort()
-    # Crear grupos iniciales por proximidad en y
+        heights.append(h)
+    # Ordenar caracteres por coordenada X (izquierda a derecha)
+    possible_characters.sort(key=lambda char: char[0])
+    # Calcular promedios de las alturas de los caracteres
+    mean_height = np.mean(heights) if heights else 0
+    # Valores dinámicos basados en la altura promedio y las relaciones de distancia del formato real
+    max_distance_y = mean_height #altura promedio
+    # El espaciado entre grupos es aprox. la mitad de la altura de los caracteres (0.5*altura)
+    # Se le da un margen mayor porque mean_height incluye otros componentes espurios.
+    e_min = mean_height * 0.4
+    e_max = mean_height * 1.6
+    c_min = e_min/2
+    c_max = e_max/2
+    # print(e_min,e_max,max_distance_y)
+    # Crear grupos iniciales por proximidad en Y
     groups = []
     for character in possible_characters:
         appended = False
         for group in groups:
-            # Antes de agregar un caracter al grupo verifica que su coordenada "y" no esté
-            # alejada de los miembros del grupo una distancia mayor a max_distance_y (15 pixeles)
             if all(abs(character[1] - member[1]) <= max_distance_y for member in group):
                 group.append(character)
                 appended = True
                 break
         if not appended:
             groups.append([character])
-    # Buscar el patrón `XXX XXX` en cada grupo formado
+    # Buscar el patrón `XXX XXX`
     for group in groups:
-        # Asegurarse de que el grupo tenga al menos 6 caracteres para buscar el patrón
         if len(group) < 6:
             continue
-        # Intentar encontrar el patrón dentro del grupo
-        # si por ejemplo el grupo tiene 10 componentes, armará los siguientes subgrupos en las 10-5 iteraciones
-        # iteracion 0: 012345
-        # iteracion 1: 123456
-        # iteracion 2: 234567
-        # iteracion 3: 345678
-        # iteracion 4: 456789
-        # en la iteración que encuentra el patrón retorna (x_start, x_end, y_start, y_end, subgroup)
         for i in range(len(group) - 5):
             subgroup = group[i:i + 6]
-            distances = [subgroup[j + 1][0] - subgroup[j][0] for j in range(5)]  # Distances entre centros de caracteres
-            alturas = [character[1] for character in subgroup]
-            # Verificar si cumplen con el patrón de la patente
+            distances = [subgroup[j + 1][0] - subgroup[j][0] for j in range(5)]  # Distancias entre centros
+            # alturas = [char[1] for char in subgroup]
+            # print(distances)
+            # print(alturas)
             if all(c_min <= dist <= c_max for dist in distances[:2] + distances[3:]) and \
-            e_min <= distances[2] <= e_max and (max(alturas) - min(alturas)) < max_distance_y:
-                # Obtener los límites de la patente
+                e_min <= distances[2] <= e_max:
                 x_start = subgroup[0][0]
-                x_end = subgroup[-1][0] + subgroup[-1][2]  # x + ancho del último componente
-                # Calcular el punto más alto y más bajo en el conjunto de caracteres
-                y_start = min([character[1] for character in subgroup])  # y mínimo
-                y_end = max([character[1] + character[3] for character in subgroup])  # y + altura del componente
+                x_end = subgroup[-1][0] + subgroup[-1][2]
+                y_start = min([char[1] for char in subgroup])
+                y_end = max([char[1] + char[3] for char in subgroup])
                 return x_start, x_end, y_start, y_end, subgroup
     return None
 
@@ -176,31 +178,23 @@ def show_results(img: np.ndarray, patente: dict, margin: int)-> None:
     for char in patente["characters"]:
         char_x, char_y, char_w, char_h = char[0] - x_start_margin, char[1] - y_start_margin, char[2], char[3]
         cv2.rectangle(img_cropped, (char_x, char_y), (char_x + char_w, char_y + char_h), (0, 0, 255), 1)
-    # Crear subplots
+    # Crear la figura con subplots
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
-    axes[0].imshow(img_with_patente)
-    axes[0].set_title("Area de la Patente en la Imagen")
-    axes[0].axis("off")
-    axes[1].imshow(img_cropped)
-    axes[1].set_title("Caracteres en la Patente")
-    axes[1].axis("off")
-    # Mostrar los subplots
+    plt.sca(axes[0])
+    imshow(img_with_patente, new_fig=False, title="Patente en la Imagen", color_img=True, ticks=False)
+    plt.sca(axes[1])
+    imshow(img_cropped, new_fig=False, title="Caracteres en la Patente", color_img=True, ticks=False)
     plt.tight_layout()
     plt.show(block=False)
-    # plt.figure()
-    # # plt.title = "Detección de patentes"
-    # ax = plt.subplot(121), imshow(img_with_patente_rgb, new_fig=False, title="Patente en la Imagen", colorbar=False)
-    # plt.subplot(122), imshow(img_cropped_rgb, new_fig=False, title="Caracteres en la Patente", colorbar=False)
-    # plt.show(block=False)
 
 '''
 Realiza un proceso iterativo con distintos umbrales de binarización
 hasta obtener una imagen donde puede reconocerse el patrón XXX XXX de una patente
 '''
-def identify_patente(img):
+def identify_patente(img: np.ndarray)-> dict:
     # Realiza el proceso para distintos umbrales hasta que encuentra el patrón XXX XXX y sale
-    for umbral in range(110,151):
-        img_cleaned = preprocess_image(img_gray, umbral)
+    for umbral in range(110,135,2):
+        img_cleaned = preprocess_image(img, umbral)
         img_filtered = filter_area_aspect(img_cleaned)
         result = detect_patente(img_filtered)
         # Visualizar el resultado
@@ -214,7 +208,9 @@ def identify_patente(img):
                 "y_end": y_end,
                 "characters": characters
             }
+            print(umbral)
             return detected_patente
+    return None
 
 #-------------------
 # Programa Principal
@@ -224,12 +220,12 @@ Identifica una patente
 Lee un archivos .png de la carpeta patentes.
 Muestra los resultados.
 '''
-img = cv2.imread("patentes\img01.png")
+img = cv2.imread("patentes\img02.png")
 img_color = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
 detected_patente = identify_patente(img_gray)
-show_results(img_color, detected_patente, 5)
+if detected_patente is not None:
+    show_results(img_color, detected_patente, 5)
 
 
 '''
