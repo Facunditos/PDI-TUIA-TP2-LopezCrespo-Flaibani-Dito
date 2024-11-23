@@ -28,8 +28,7 @@ img_BGR = cv2.imread('monedas.jpg')
 img_RGB = cv2.cvtColor(img_BGR, cv2.COLOR_BGR2RGB)
 imshow(img_RGB, title="Imagen a color")  
 
-
-img = cv2.imread('monedas.jpg', cv2.IMREAD_GRAYSCALE)   # Leemos imagen
+img = cv2.cvtColor(img_BGR, cv2.COLOR_BGR2GRAY)   # Leemos imagen
 imshow(img,title='Imagen en escala de grises')
 
 # ----- Suavizado -------
@@ -155,7 +154,7 @@ for i in range(1,num_labels):
         monedas.append(info_obj)  
  
 
-plt.figure(), imshow(img_RGB,title='Segmentación de dados y monedas')
+imshow(img_RGB,title='Segmentación de dados y monedas')
 
 for il, dado in enumerate(dados):
     x,y,ancho,alto = dado['coor']
@@ -173,12 +172,13 @@ plt.show(block=False)
 
 # ----------------------- Punto B -----------------------------------------------
 
-# Construimos una lista de listas. Cada lista reportará el área de la moneda, su índice y su número de cluster
+# Construimos una lista de listas. Cada lista reportará el área de la moneda y su índice. Luego se agregará el número de cluster
 info_monedas = [[moneda['area_obj'],idx_moneda] for idx_moneda,moneda in enumerate(monedas)]
+# Ordenamos las monedas de menor a mayor según su área
 info_monedas.sort()
 areas_monedas_ord_asc = [moneda[0] for moneda in info_monedas]
 
-
+# Calculamos el salto de área que hay al pasar de una moneda a la otra
 deltas = []
 for i,area_moneda in enumerate(areas_monedas_ord_asc):
     if (i==0):
@@ -186,6 +186,8 @@ for i,area_moneda in enumerate(areas_monedas_ord_asc):
     area_moneda_anterior = areas_monedas_ord_asc[i-1]
     delta =  area_moneda - area_moneda_anterior
     deltas.append(delta)
+
+# Calculamos un delta atípico, el cual asumimos que será útil para seprar clusters
 
 q1 = np.percentile(deltas, 25)
 q3 = np.percentile(deltas, 75)
@@ -220,6 +222,9 @@ plt.show(block=False)
 numero_cluster = 1
 info_monedas[0].append(numero_cluster)
 for i,delta_obs in enumerate(deltas):
+    # Si el delta observado no supera el delta diferenciador de cluster, 
+    # se asigna a la moneda bajo análisis el cluster contrario. En caso de 
+    # estar en presencia de un delta significativo, se asume que corresponde crear un nuevo cluster
     if (delta_obs<delta_sep_clusters):
         info_monedas[i+1].append(numero_cluster)
     else:
@@ -240,7 +245,7 @@ q_moneda_10 = 0
 q_moneda_50 = 0
 q_moneda_100 = 0
 
-plt.figure(), imshow(img_RGB,title='Separación de monedas en clusters')
+imshow(img,title='Separación de monedas en clusters')
 
 for il, moneda in enumerate(monedas):
     x,y,ancho,alto = moneda['coor']
@@ -277,6 +282,7 @@ for dado in dados:
     img_dado = img[y:y+alto,x:x+ancho]
     img_dado_suavizada = cv2.medianBlur(img_dado,3)
     circles = cv2.HoughCircles(img_dado_suavizada,cv2.HOUGH_GRADIENT, 1, 20, param1=65, param2=40, minRadius=0, maxRadius=50)  # Circulos chicos
+    # Se asume que la cantaidad de círculos encontrados se corresponde con la cara superior del dado
     valor_dado = len(circles[0])
     q_dados_segun_valor[valor_dado-1] += 1
     circles = np.uint16(np.around(circles))
@@ -288,19 +294,4 @@ for dado in dados:
 
 f"El conteno de dados arroja que sobre la mesa {len(dados)} dados de las siguientes denominaciones:"
 [print(f'{q_dado} dado de valor {i+1}')for i,q_dado in enumerate(q_dados_segun_valor) if q_dado>0]
-
-
-# ---- NO APLICA CODIGO SIGUIENTE -----------------------
-tamaño_kernel = [3,10,19]
-plt.figure()
-ax = plt.subplot(221)
-imshow(img_canny, new_fig=False, title="Imagen Original")
-for i,size in enumerate(tamaño_kernel):
-    kernel = np.ones((size,size),dtype='uint8')
-    size
-    img_dilatada = cv2.dilate(img_canny, kernel, iterations=1)
-    pos_sup = f'22{i+2}'
-    plt.subplot(int(pos_sup), sharex=ax, sharey=ax), imshow(img_dilatada, new_fig=False, title=f"Dilatación: forma{kernel.shape}")
-
-plt.show(block=False)
 
