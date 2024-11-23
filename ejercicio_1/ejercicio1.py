@@ -20,10 +20,17 @@ def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, color
     if new_fig:        
         plt.show(block=blocking)
 
+      
+
 # ----------------------- Punto A -----------------------------------------------
 
+img_BGR = cv2.imread('monedas.jpg')
+img_RGB = cv2.cvtColor(img_BGR, cv2.COLOR_BGR2RGB)
+imshow(img_RGB, title="Imagen a color")  
+
+
 img = cv2.imread('monedas.jpg', cv2.IMREAD_GRAYSCALE)   # Leemos imagen
-imshow(img,title='gris')
+imshow(img,title='Imagen en escala de grises')
 
 img_blur = cv2.medianBlur(img, 5)
 imshow(img_blur,title='suavizada')
@@ -97,7 +104,7 @@ for i in range(1,num_labels):
         monedas.append(info_obj)  
  
 
-plt.figure(), plt.imshow(img, cmap='gray')
+plt.figure(), imshow(img_RGB,title='Segmentación de dados y monedas')
 
 for il, dado in enumerate(dados):
     x,y,ancho,alto = dado['coor']
@@ -182,7 +189,7 @@ q_moneda_10 = 0
 q_moneda_50 = 0
 q_moneda_100 = 0
 
-plt.figure(), plt.imshow(img, cmap='gray')
+plt.figure(), imshow(img_RGB,title='Separación de monedas en clusters')
 
 for il, moneda in enumerate(monedas):
     x,y,ancho,alto = moneda['coor']
@@ -226,9 +233,9 @@ for dado in dados:
     for i in circles[0,:]:
         cv2.circle(cimg, (i[0],i[1]), i[2], (0,255,0), 2)   # draw the outer circle
         cv2.circle(cimg, (i[0],i[1]), 2, (0,0,255), 2)      # draw the center of the circle
-    imshow(cimg)
+    imshow(cimg,title=f'Dado cuya cara superior tiene un valor de {valor_dado}')
 
-print(f"El conteno de dados arroja que sobre la mesa {len(dados)} dados de las siguientes denominaciones:")
+f"El conteno de dados arroja que sobre la mesa {len(dados)} dados de las siguientes denominaciones:"
 [print(f'{q_dado} dado de valor {i+1}')for i,q_dado in enumerate(q_dados_segun_valor) if q_dado>0]
 
 
