@@ -32,17 +32,49 @@ imshow(img_RGB, title="Imagen a color")
 img = cv2.imread('monedas.jpg', cv2.IMREAD_GRAYSCALE)   # Leemos imagen
 imshow(img,title='Imagen en escala de grises')
 
-img_blur = cv2.medianBlur(img, 5)
-imshow(img_blur,title='suavizada')
+# ----- Suavizado -------
 
+img_blur = cv2.medianBlur(img, 5)
+
+# ----- Canny ------------
+
+parejas_umbrales = [(0.1*255,0.25*255),(0.25*255,0.6*255),(0.6*255,0.9*255)]
+plt.figure()
+ax = plt.subplot(221)
+imshow(img_blur, new_fig=False, title="Imagen en escala de grises y luego suavizada")
+for i,pareja_umbrales in enumerate(parejas_umbrales):
+    th_1,th_2 = pareja_umbrales
+    img_canny = cv2.Canny(img_blur, threshold1=th_1, threshold2=th_2)
+    pos_sup = f'22{i+2}'
+    plt.subplot(int(pos_sup), sharex=ax, sharey=ax), imshow(img_canny, new_fig=False, title=f"Canny\n(u_inf:{th_1}, u_sup:{th_2}")
+
+plt.show(block=False)
+
+# Se elige opción intermedia
 th_1 = 0.25*255
 th_2 = 0.60*255
 img_canny = cv2.Canny(img_blur, threshold1=th_1, threshold2=th_2)
-imshow(img_canny,title='canny')
 
-kernel = np.ones((29,29),dtype='uint8')
+# ----- Dilatación ---------
+
+tamaño_kernels = [9,29,49]
+plt.figure()
+ax = plt.subplot(221)
+imshow(img_canny, new_fig=False, title=f"Canny\n(u_inf:{th_1}, u_sup:{th_2})")
+for i,size in enumerate(tamaño_kernels):
+    kernel = np.ones((size,size),dtype='uint8')
+    img_dilatada = cv2.dilate(img_canny, kernel, iterations=1)
+    pos_sup = f'22{i+2}'
+    plt.subplot(int(pos_sup), sharex=ax, sharey=ax), imshow(img_dilatada, new_fig=False, title=f"Dilatación\n(kernel:{size} X {size})")
+
+plt.show(block=False)
+
+# Se elige opción intermedia
+size = 29
+kernel = np.ones((size,size),dtype='uint8')
 img_dilatada = cv2.dilate(img_canny, kernel, iterations=1)
-imshow(img_dilatada,title='dilatada')
+
+# ----- Relleno de huecos ---------
 
 def imreconstruct(marker, mask, kernel=None):
     if kernel==None:
@@ -55,7 +87,6 @@ def imreconstruct(marker, mask, kernel=None):
         marker = expanded_intersection        
     return expanded_intersection
 
-# --- Rellenado de huecos -----------------------------------------------------
 def imfillhole(img):
     # img: Imagen binaria de entrada. Valores permitidos: 0 (False), 255 (True).
     mask = np.zeros_like(img)                                                   # Genero mascara para...
@@ -66,13 +97,34 @@ def imfillhole(img):
     img_fh = cv2.bitwise_not(img_r)                         # La imagen con sus huecos rellenos es igual al complemento de la reconstruccion.
     return img_fh
 
-img_fh = imfillhole(img_dilatada)
-imshow(img_fh,title='relleno de huecos')
 
+plt.figure()
+ax = plt.subplot(121)
+imshow(img_dilatada, new_fig=False, title=f"Dilatación\n(kernel:{size} X {size})")
+img_fh = imfillhole(img_dilatada)
+plt.subplot(122, sharex=ax, sharey=ax), imshow(img_fh, new_fig=False, title=f"Relleno de huecos")
+
+plt.show(block=False)
+
+# ----- Erosión ---------
+
+tamaño_kernels = [3,39,89]
+plt.figure()
+ax = plt.subplot(221)
+imshow(img_fh, new_fig=False, title=f"Relleno de huecos")
+for i,size in enumerate(tamaño_kernels):
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size) )
+    img_erosion = cv2.erode(img_fh, kernel, iterations=1)
+    pos_sup = f'22{i+2}'
+    plt.subplot(int(pos_sup), sharex=ax, sharey=ax), imshow(img_erosion, new_fig=False, title=f"Erosión\n(kernel:{size} X {size})")
+
+plt.show(block=False)
+
+# Se elige opción intermedia
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (39, 39) )
 img_erosion = cv2.erode(img_fh, kernel, iterations=1)
-imshow(img_erosion,title='erosion')
 
+# ----- Componentes 8 conectadas ---------
 connectivity = 8
 num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img_erosion, connectivity, cv2.CV_32S)
 monedas = []
@@ -92,7 +144,6 @@ for i in range(1,num_labels):
     f_p = round(area / (perimeter**2),4)
     info_obj = {
         'coor': (x,y,ancho,alto) ,
-        'img': img_obj,
         'area_obj': area,
         'area_caja': area_caja,
         'f_p': f_p,
