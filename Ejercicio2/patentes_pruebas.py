@@ -236,7 +236,150 @@ img= cv2.imread(f"C:\\Users\\Usuario\\Documents\\TECNICATURA EN IA\\PROCESAMIENT
 #img = cv2.imread("Ejercicio2\\Patentes\\img01.png")
 #img = cv2.imread("patentes\img01.png")
 img_color = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)       
+img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  
+
+# Umbralización INICIAL -------------------------------------------------------------------------------
+# umbral inicial para umbralizar una imagen en procesamiento de imágenes es una parte crítica, 
+# especialmente cuando se trata de imágenes con variaciones en la iluminación o ruido
+
+# Tipos de umbralizacion inicial
+"""
+    *1.Otsu es una de las formas más comunes para calcular el umbral automáticamente.
+    *2.Media y Desviación estándar ofrecen métodos más simples, pero menos robustos.
+    *3.Umbralización Local es útil para imágenes con variaciones de iluminación.
+    *4.Sauvola es ideal para imágenes de bajo contraste como documentos escaneados. ( no uso)
+    *5. Metodo de la media ponderada ( Otsu modificado).
+    """
+# 1.Aplicar Otsu para obtener un umbral automático: # Método de Otsu (Umbralización de Otsu)
+"""
+Otsu calcula el umbral que minimiza la varianza intra-clase, lo cual es equivalente a maximizar la varianza inter-clase. 
+Es decir, busca el punto donde los píxeles de fondo y primer plano están más separados entre sí.
+El valor de umbral se elige de tal manera que la suma de las varianzas dentro de cada clase (fondo y objeto) sea mínima.
+"""
+umbral_otsu, img_umbralizada = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+umbral_otsu # 114
+#np.unique(img_gray).sum() # 32640
+#img_gray.max()  #255
+#img_gray.min() # 0
+
+# 2.Método de la Varianza (Thresholding por Desviación Estándar)
+# Calcular la media y la desviación estándar
+mean, std_dev = cv2.meanStdDev(img_gray)
+# Definir un umbral usando la media y la desviación estándar
+umbral_inicial_variancia= mean[0][0] - std_dev[0][0]
+umbral_inicial_variancia# 88.28
+
+# Calcular el umbral como la  MEDIA de los píxeles
+umbral_inicial_mean = np.mean(img_gray) # 127.5
+#umbral_inicial_mean1= np.unique(img_gray).sum() /256 # promedio
+
+#umbral_inicial= img_gray.max()/2 # MEDIANA
+
+# PROMEDIO DE LOS 3 METODOS
+umbral_promedio= (umbral_otsu+ umbral_inicial_variancia+umbral_inicial_mean)/3
+umbral_promedio # 114.01 similar a lo obtenidcon otsu
+
+# 3.Método de Umbralización Local (Adaptive Thresholding) :Aplicar umbralización adaptativa
+"""
+En algunas imágenes, el umbral global no funciona bien debido a variaciones locales en la iluminación. 
+En estos casos, se puede aplicar un umbral local a cada región de la imagen. Esto permite un umbral diferente para cada área de la imagen.
+El umbral adaptativo utiliza una ventana móvil para calcular el umbral de cada pixel en función de su vecindad."""
+img_adaptativa = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                      cv2.THRESH_BINARY, 11, 2) # cv2.ADAPTIVE_THRESH_MEAN_C: Calcula el umbral como la media de los píxeles en una vecindad alrededor de cada píxel.
+                                                                # 11: El tamaño de la vecindad (tamaño de la ventana).
+                                                                # 2: Un valor constante que se resta de la media calculada.
+# 5. Metodo de la media ponderada ( Otsu modificado)
+
+# Calcular el histograma de la imagen original
+histograma = cv2.calcHist([img_gray], [0], None, [256], [0, 256])
+
+# Normalizar el histograma para obtener la probabilidad de cada valor de intensidad
+histograma_normalizado = histograma / histograma.sum()
+
+# Inicializar variables
+umbral_optimo = 0
+max_varianza = 0
+media_total = np.sum(np.arange(256) * histograma_normalizado)  # Media ponderada global (todas las intensidades)
+
+# Lista para almacenar las varianzas
+varianzas = []
+
+# Recorrer todos los posibles umbrales
+for t in range(1, 256):
+    # Dividir la imagen en dos clases (valores por debajo y por encima del umbral)
+    clase_1 = histograma_normalizado[:t]
+    clase_2 = histograma_normalizado[t:]
+
+    # Media de la clase 1 (media ponderada de los píxeles por debajo del umbral)
+    media_1 = np.sum(np.arange(t) * clase_1) / np.sum(clase_1) if np.sum(clase_1) > 0 else 0
+
+    # Media de la clase 2 (media ponderada de los píxeles por encima del umbral)
+    media_2 = np.sum(np.arange(t, 256) * clase_2) / np.sum(clase_2) if np.sum(clase_2) > 0 else 0
+
+    # Calcular la varianza entre clases
+    varianza = np.sum(clase_1) * (media_1 - media_total)**2 + np.sum(clase_2) * (media_2 - media_total)**2
+    varianzas.append(varianza)
+
+    # Actualizar el umbral si la varianza es mayor que la anterior
+    if varianza > max_varianza:
+        max_varianza = varianza
+        umbral_optimo = t
+
+# Aplicar el umbral calculado
+_, img_umbralizada = cv2.threshold(img_gray, umbral_optimo, 255, cv2.THRESH_BINARY)
+
+# Mostrar la imagen original y la umbralizada
+plt.figure(figsize=(10, 5))
+
+plt.subplot(1, 2, 1)
+plt.title('Imagen Original')
+plt.imshow(img_gray, cmap='gray')
+
+plt.subplot(1, 2, 2)
+plt.title('Imagen Umbralizada (Método Media Ponderada)')
+plt.imshow(img_umbralizada, cmap='gray')
+
+plt.show()
+
+# Mostrar los histogramas
+plt.figure(figsize=(10, 6))
+
+# Histograma original
+plt.subplot(2, 2, 1)
+plt.title('Histograma Original')
+plt.plot(histograma_normalizado, color='blue')
+plt.xlabel('Intensidad de píxeles')
+plt.ylabel('Frecuencia normalizada')
+
+# Histograma de la clase 1 (por debajo del umbral)
+clase_1_histograma = np.zeros(256)
+clase_1_histograma[:umbral_optimo] = histograma_normalizado[:umbral_optimo]
+plt.subplot(2, 2, 2)
+plt.title(f'Histograma Clase 1 (Por debajo del umbral {umbral_optimo})')
+plt.plot(clase_1_histograma, color='red')
+plt.xlabel('Intensidad de píxeles')
+plt.ylabel('Frecuencia normalizada')
+
+# Histograma de la clase 2 (por encima del umbral)
+clase_2_histograma = np.zeros(256)
+clase_2_histograma[umbral_optimo:] = histograma_normalizado[umbral_optimo:]
+plt.subplot(2, 2, 3)
+plt.title(f'Histograma Clase 2 (Por encima del umbral {umbral_optimo})')
+plt.plot(clase_2_histograma, color='green')
+plt.xlabel('Intensidad de píxeles')
+plt.ylabel('Frecuencia normalizada')
+
+# Graficar la varianza entre clases a medida que cambia el umbral
+plt.subplot(2, 2, 4)
+plt.title('Varianza entre clases vs Umbral')
+plt.plot(range(1, 256), varianzas, color='purple')
+plt.xlabel('Umbral')
+plt.ylabel('Varianza entre clases')
+
+plt.tight_layout()
+plt.show()
+
+print(f"El umbral óptimo calculado es: {umbral_optimo}")
 
 # PRE-PROCESAMEINTO -------------------------------------------------------------------------------
 '''
