@@ -40,7 +40,7 @@ img_blur = cv2.medianBlur(img, 5)
 parejas_umbrales = [(0.1*255,0.25*255),(0.25*255,0.6*255),(0.6*255,0.9*255)]
 plt.figure()
 ax = plt.subplot(221)
-imshow(img_blur, new_fig=False, title="Imagen en escala de grises y luego suavizada")
+imshow(img_blur, new_fig=False, title="Imagen suavizada")
 for i,pareja_umbrales in enumerate(parejas_umbrales):
     th_1,th_2 = pareja_umbrales
     img_canny = cv2.Canny(img_blur, threshold1=th_1, threshold2=th_2)
