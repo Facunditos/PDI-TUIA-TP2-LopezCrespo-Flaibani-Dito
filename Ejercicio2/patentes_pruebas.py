@@ -351,21 +351,29 @@ plt.plot(histograma_normalizado, color='blue')
 plt.xlabel('Intensidad de píxeles')
 plt.ylabel('Frecuencia normalizada')
 
-# Histograma de la clase 1 (por debajo del umbral)
-clase_1_histograma = np.zeros(256)
-clase_1_histograma[:umbral_optimo] = histograma_normalizado[:umbral_optimo]
+# Separar la imagen umbralizada en las dos clases
+clase_1_img = img_gray[img_gray < umbral_optimo]
+clase_2_img = img_gray[img_gray >= umbral_optimo]
+
+# Histograma para clase 1 (por debajo del umbral)
+clase_1_histograma = cv2.calcHist([clase_1_img], [0], None, [256], [0, 256])
+clase_1_histograma_normalizado = clase_1_histograma / clase_1_histograma.sum()
+
+# Histograma para clase 2 (por encima del umbral)
+clase_2_histograma = cv2.calcHist([clase_2_img], [0], None, [256], [0, 256])
+clase_2_histograma_normalizado = clase_2_histograma / clase_2_histograma.sum()
+
+# Graficar el histograma de clase 1
 plt.subplot(2, 2, 2)
 plt.title(f'Histograma Clase 1 (Por debajo del umbral {umbral_optimo})')
-plt.plot(clase_1_histograma, color='red')
+plt.plot(clase_1_histograma_normalizado, color='red')
 plt.xlabel('Intensidad de píxeles')
 plt.ylabel('Frecuencia normalizada')
 
-# Histograma de la clase 2 (por encima del umbral)
-clase_2_histograma = np.zeros(256)
-clase_2_histograma[umbral_optimo:] = histograma_normalizado[umbral_optimo:]
+# Graficar el histograma de clase 2
 plt.subplot(2, 2, 3)
 plt.title(f'Histograma Clase 2 (Por encima del umbral {umbral_optimo})')
-plt.plot(clase_2_histograma, color='green')
+plt.plot(clase_2_histograma_normalizado, color='green')
 plt.xlabel('Intensidad de píxeles')
 plt.ylabel('Frecuencia normalizada')
 
@@ -380,6 +388,9 @@ plt.tight_layout()
 plt.show()
 
 print(f"El umbral óptimo calculado es: {umbral_optimo}")
+
+
+
 
 # PRE-PROCESAMEINTO -------------------------------------------------------------------------------
 '''
