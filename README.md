@@ -10,10 +10,10 @@ Desde la línea de comandos:
 **ejercicio1.py**
 
 - Abrir una terminal que esté ubicada en el mismo nivel en que se encuentra el script PDI-TUIA-TP2-LopezCrespo-Flaibani-Dito\Ejercicio1\ejercicio1.py
-- Correr el comando python3 ejercicio1.py
+- Correr el comando python ejercicio1.py
 - Se ejecutara el programa que permitirá visualizar todas las imágenes obtenidas durante el procesamiento de la imagen principal. 
 - Por terminal se imprimen mensajes vinculados con la resolución del ejercicio. 
-- El último mensaje que se visualiza en una pregunta al usuario sobre el cierre del programa. Presionar enter para terminar la ejecución y cerrar todas las imágenes. 
+- El último mensaje que se visualiza es una pregunta al usuario sobre el cierre del programa. Presionar enter para terminar la ejecución y cerrar todas las imágenes. 
 
 
 **patentes.py**

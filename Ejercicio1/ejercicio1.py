@@ -258,16 +258,21 @@ for il, moneda in enumerate(monedas):
     if num_cluster == 1:
         rect = Rectangle((x,y), ancho, alto, linewidth=1, edgecolor='r', facecolor='none')   
         q_moneda_10 +=1
+        moneda['valor'] = '10 Cts.'
     elif num_cluster == 2:
         rect = Rectangle((x,y), ancho, alto, linewidth=1, edgecolor='b', facecolor='none')   
         q_moneda_100 +=1
+        moneda['valor'] = '1 Peso'
     else:
         rect = Rectangle((x,y), ancho, alto, linewidth=1, edgecolor='g', facecolor='none')   
         q_moneda_50 +=1
+        moneda['valor'] = '50 Cts.'
     ax = plt.gca()          
     ax.add_patch(rect)   
 
 plt.show(block=False)
+
+
 
 dinero = q_moneda_10 * 10 + q_moneda_50 * 50 + q_moneda_100 * 100
 pesos = dinero // 100
@@ -290,6 +295,7 @@ for dado in dados:
     # Se asume que la cantaidad de círculos encontrados se corresponde con la cara superior del dado
     valor_dado = len(circles[0])
     q_dados_segun_valor[valor_dado-1] += 1
+    dado['valor'] = valor_dado
     circles = np.uint16(np.around(circles))
     cimg = cv2.cvtColor(img_dado, cv2.COLOR_GRAY2BGR)
     for i in circles[0,:]:
@@ -301,6 +307,52 @@ print("\n----Conteo de dados----")
 print(f"El conteo de dados arroja que sobre la mesa {len(dados)} dados de las siguientes denominaciones:")
 [print(f'\t-{q_dado} dado de valor {i+1}')for i,q_dado in enumerate(q_dados_segun_valor) if q_dado>0]
 print("-----------------------------")
+
+
+# Imagen final con todos los resultados
+
+colores = {
+        '10 Cts.': (0, 0, 255/255),     # Rojo
+        '1 Peso': (0, 255/255, 0),      # Verde
+        '50 Cts.': (255/255, 0, 0),     # Azul
+        'Dados': (255/255, 255/255, 0)  # Amarillo
+}
+# Copiar la imagen original para dibujar
+img_resultados = img_RGB.copy()
+# Crear la figura y los ejes para mostrar la imagen
+fig, ax = plt.subplots(figsize=(10, 10))
+ax.imshow(img_resultados)
+plt.title('Imagen final')
+# Dibujar los rectángulos sobre las monedas
+for moneda in monedas:
+    x,y,ancho,alto = moneda['coor']
+    valor = moneda['valor']
+    color = colores[valor]
+    rect = Rectangle((x, y), ancho, alto, linewidth=2, edgecolor=color, facecolor='none')
+    ax.add_patch(rect)
+    ax.text(x, y - 15, str(valor), fontsize=12, color=color, weight='bold')
+# Dibujar los rectángulos para los dados
+
+for dado in dados:
+    x,y,ancho,alto = dado['coor']
+    valor = dado['valor']
+    rect = Rectangle((x, y), ancho, alto, linewidth=2, edgecolor=colores['Dados'], facecolor='none')
+    ax.add_patch(rect)
+    ax.text(x, y - 15, "Dado: "+str(valor), fontsize=12, color=colores['Dados'], weight='bold')
+# Agregar la leyenda
+
+leyenda_pos = (220, 190)  # Posición inicial de la leyenda
+linea_espaciado = 150    # Espaciado entre líneas de la leyenda
+for i, (value, color) in enumerate(colores.items()):
+    # Cuadro de color para leyenda
+    ax.add_patch(Rectangle((leyenda_pos[0], leyenda_pos[1] + i * linea_espaciado),
+        20, 20, linewidth=2, edgecolor=color, facecolor=color))
+    # Agregar texto a la leyenda
+    ax.text(leyenda_pos[0] + 30, leyenda_pos[1] + i * linea_espaciado + 10, str(value), fontsize=12, color=color)
+
+ax.axis('off')
+plt.show(block=False)
+
 
 input('\n\nquiere cerrar el programa:\t')
 
