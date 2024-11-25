@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt 
 from matplotlib.patches import Rectangle 
+import warnings
+warnings.filterwarnings("ignore")
+
 
 
 
@@ -237,9 +240,11 @@ for info_moneda in info_monedas:
     numero_cluster = info_moneda[2]
     monedas[idx_moneda]['numero_cluster'] = numero_cluster
 
-f'En función al área de las monedas se pueden distinguir {numero_cluster} clusters o tipos de monedas diferenes'
+print("-----------------------------")
+print("----Conteo de monedas----")
+print(f'En función al área de las monedas se pueden distinguir {numero_cluster} clusters o tipos de monedas diferenes')
 
-# Asociamos el cluster 1 con las monedas de 10 centavos, cluster 2 con las de 1 peso y cluster 3 con las de 50 centavos
+print("Asociamos el cluster 1 con las monedas de 10 centavos, cluster 2 con las de 1 peso y cluster 3 con las de 50 centavos")
 
 q_moneda_10 = 0
 q_moneda_50 = 0
@@ -267,7 +272,7 @@ plt.show(block=False)
 dinero = q_moneda_10 * 10 + q_moneda_50 * 50 + q_moneda_100 * 100
 pesos = dinero // 100
 centavos = dinero % 100
-print(f"El conteno de monedas arroja que sobre la mesa hay {pesos} pesos con {centavos} centavos producto de identificarse:\n\t-{q_moneda_100} monedas de 1 peso\n\t-{q_moneda_50} monedas de 50 centavos\n\t-{q_moneda_10} monedas de 10 centavos")
+print(f"El conteo de monedas arroja que sobre la mesa hay {pesos} pesos con {centavos} centavos producto de identificarse:\n\t-{q_moneda_100} monedas de 1 peso\n\t-{q_moneda_50} monedas de 50 centavos\n\t-{q_moneda_10} monedas de 10 centavos")
 
 
 # ----------------------- Punto C -----------------------------------------------
@@ -292,6 +297,10 @@ for dado in dados:
         cv2.circle(cimg, (i[0],i[1]), 2, (0,0,255), 2)      # draw the center of the circle
     imshow(cimg,title=f'Dado cuya cara superior tiene un valor de {valor_dado}')
 
-f"El conteno de dados arroja que sobre la mesa {len(dados)} dados de las siguientes denominaciones:"
-[print(f'{q_dado} dado de valor {i+1}')for i,q_dado in enumerate(q_dados_segun_valor) if q_dado>0]
+print("\n----Conteo de dados----")
+print(f"El conteo de dados arroja que sobre la mesa {len(dados)} dados de las siguientes denominaciones:")
+[print(f'\t-{q_dado} dado de valor {i+1}')for i,q_dado in enumerate(q_dados_segun_valor) if q_dado>0]
+print("-----------------------------")
+
+input('\n\nquiere cerrar el programa:\t')
 
