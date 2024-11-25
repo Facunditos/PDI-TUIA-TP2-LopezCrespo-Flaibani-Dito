@@ -220,7 +220,7 @@ Identifica una patente
 Lee un archivos .png de la carpeta patentes.
 Muestra los resultados.
 '''
-img = cv2.imread("patentes\img02.png")
+img = cv2.imread("Patentes\img02.png")
 img_color = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 detected_patente = identify_patente(img_gray)
@@ -233,7 +233,7 @@ Identifica todas las patentes en la carpeta "patentes"
 Lee los archivos .png de la carpeta patentes.
 Muestra los resultados.
 '''
-path_patentes = 'patentes'
+path_patentes = 'Patentes'
 files = [os.path.join(path_patentes, f) for f in os.listdir(path_patentes) if f.endswith('.png')]
 # Diccionario para almacenar la información de las patentes detectadas
 detected_patentes = []
