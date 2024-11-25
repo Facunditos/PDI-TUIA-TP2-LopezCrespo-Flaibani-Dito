@@ -2,4 +2,3 @@ opencv-python
 matplotlib
 numpy
 os
-sklearn

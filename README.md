@@ -1,6 +1,6 @@
 Desde la línea de comandos:
 
-* git clone https://github.com/Facunditos/Facunditos-PDI-TUIA-TP1-LopezCrespo-Flaibani-Dito.git
+* git clone https://github.com/Facunditos/PDI-TUIA-TP2-LopezCrespo-Flaibani-Dito.git
 * cd PDI-TUIA-TP2-LopezCrespo-Flaibani-Dito           # Cambia al directorio del proyecto
 * python -m venv venv             # Crea el entorno virtual
 * .\venv\Scripts\activate         # Activa el entorno virtual
